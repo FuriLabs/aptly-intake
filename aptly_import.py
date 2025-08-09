@@ -43,6 +43,7 @@ ALLOWED_DISTRIBUTIONS = [
 	"bullseye",
 	"bookworm",
 	"trixie",
+	"forky",
 ]
 
 # How does the publishing work:
@@ -64,7 +65,7 @@ config.read(INTAKE_SETTINGS)
 DEFAULT_VENDOR = config.get(
 	"Intake",
 	"APTLY_DEFAULT_VENDOR",
-	fallback="Droidian"
+	fallback="FuriOS"
 )
 DEFAULT_SIGNING_GPG_FINGERPRINT = config.get(
 	"Intake",
