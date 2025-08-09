@@ -39,11 +39,6 @@ import aptly_api
 
 from debian.deb822 import Changes
 
-ALLOWED_DISTRIBUTIONS = [
-	"bullseye",
-	"bookworm",
-]
-
 # How does the publishing work:
 #  1. This script is invoked by a watcher whenever a new .changes
 #     file appears
@@ -63,7 +58,7 @@ config.read(INTAKE_SETTINGS)
 DEFAULT_VENDOR = config.get(
 	"Intake",
 	"APTLY_DEFAULT_VENDOR",
-	fallback="Droidian"
+	fallback="FuriOS"
 )
 DEFAULT_SIGNING_GPG_FINGERPRINT = config.get(
 	"Intake",
