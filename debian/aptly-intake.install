@@ -6,3 +6,4 @@ aptly_fix_uids_gids.sh /usr/lib/aptly-intake
 aptly_api/* /usr/lib/aptly-intake/aptly_api
 systemd/* /lib/systemd/system
 tmpfiles/* /usr/lib/tmpfiles.d
+aptly-api.conf /usr/share/aptly-api

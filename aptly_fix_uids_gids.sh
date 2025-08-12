@@ -23,7 +23,7 @@ usermod -u ${QUEUE_USER} aptly-queue
 groupmod -g ${QUEUE_GROUP} aptly-queue
 
 # Fix permission of the configuration file
-chown root:aptly-api /etc/aptly-api.conf
+chown root:aptly-api /usr/share/aptly-api/aptly-api.conf
 
 # Re-run systemd-tmpfiles so that uids are synced
 systemd-tmpfiles --create --exclude-prefix=/dev

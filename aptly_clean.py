@@ -114,4 +114,4 @@ if __name__ == "__main__":
 					print("Removed snapshot %s" % snapshot["Name"])
 
 			# Cleanup
-			subprocess.check_call(["aptly", "db", "cleanup", "-config", "/etc/aptly-api.conf", "-dep-follow-all-variants", "-dep-follow-source"])
+			subprocess.check_call(["aptly", "db", "cleanup", "-config", "/usr/share/aptly-api/aptly-api.conf", "-dep-follow-all-variants", "-dep-follow-source"])
