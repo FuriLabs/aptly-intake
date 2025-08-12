@@ -19,6 +19,7 @@ Depends: ${misc:Depends},
          python3-debian,
          python3-apt,
          inotify-tools,
+         gpg-agent,
 Description: Intake for Debian packages
  This packages provides a simple intake for Debian packages, and
  uses aptly to publish a repository.
