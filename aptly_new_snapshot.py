@@ -28,11 +28,8 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import os
-
 import sys
-
 import uuid
-
 import configparser
 
 import aptly_api
@@ -56,81 +53,80 @@ config = configparser.ConfigParser()
 config.read(INTAKE_SETTINGS)
 
 DEFAULT_VENDOR = config.get(
-	"Intake",
-	"APTLY_DEFAULT_VENDOR",
-	fallback="FuriOS"
+    "Intake",
+    "APTLY_DEFAULT_VENDOR",
+    fallback="FuriOS"
 )
 DEFAULT_SIGNING_GPG_FINGERPRINT = config.get(
-	"Intake",
-	"APTLY_SIGNING_GPG_FINGERPRINT",
-	fallback="3027CDD5DF3C0181264550A062F62D66F658C408"
+    "Intake",
+    "APTLY_SIGNING_GPG_FINGERPRINT",
+    fallback="3027CDD5DF3C0181264550A062F62D66F658C408"
 )
 DEFAULT_SIGNING_GPG_KEYRING = config.get(
-	"Intake",
-	"APTLY_SIGNING_GPG_KEYRING",
-	fallback="/var/lib/aptly-api/.gnupg/pubring.kbx"
+    "Intake",
+    "APTLY_SIGNING_GPG_KEYRING",
+    fallback="/var/lib/aptly-api/.gnupg/pubring.kbx"
 )
 
 # FIXME?
 DEFAULT_ARCHITECTURES = [
-	"source",
-	"amd64",
-	"i386",
-	"arm64",
-	"armhf",
+    "source",
+    "amd64",
+    "i386",
+    "arm64",
+    "armhf",
 ]
 
 if __name__ == "__main__":
-	run_uuid = uuid.uuid4()
+    run_uuid = uuid.uuid4()
 
-	signing_configuration = aptly_api.AptlyAPISigningOptions(
-		[
-			("Skip", False),
-			("GpgKey", DEFAULT_SIGNING_GPG_FINGERPRINT),
-		]
-	)
+    signing_configuration = aptly_api.AptlyAPISigningOptions(
+        [
+            ("Skip", False),
+            ("GpgKey", DEFAULT_SIGNING_GPG_FINGERPRINT),
+        ]
+    )
 
-	with aptly_api.AptlySession("http://localhost:8080/") as session:
+    with aptly_api.AptlySession("http://localhost:8080/") as session:
+        with aptly_api.AptlyAPILock() as lock:
+            # Get the list of local repositories related to the current
+            # channel and distribution combo
+            repo_list = session.LocalRepo.list()
 
-		with aptly_api.AptlyAPILock() as lock:
-			# Get the list of local repositories related to the current
-			# channel and distribution combo
-			repo_list = session.LocalRepo.list()
+            channels_and_distributions = {
+                "_".join(x["Name"].split("_")[:2])
+                for x in repo_list if "_" in x["Name"] # meh
+            }
 
-			channels_and_distributions = {
-				"_".join(x["Name"].split("_")[:2])
-				for x in repo_list if "_" in x["Name"] # meh
-			}
+            for channel_and_distribution in channels_and_distributions:
+                channel, distribution = channel_and_distribution.split("_")
 
-			for channel_and_distribution in channels_and_distributions:
-				channel, distribution = channel_and_distribution.split("_")
+                repos = {
+                    x["Name"] : x["DefaultComponent"] # FIXME: this is an assumption we make
+                    for x in repo_list
+                    if x["Name"].startswith("%s_%s_" % (channel, distribution))
+                }
 
-				repos = {
-					x["Name"] : x["DefaultComponent"] # FIXME: this is an assumption we make
-					for x in repo_list
-					if x["Name"].startswith("%s_%s_" % (channel, distribution))
-				}
+                created_snapshots = []
+                for repo, component in repos.items():
+                    snapshot_name = "%s_%s" % (repo, run_uuid)
+                    print("Creating snapshot for repo %s" % repo)
+                    session.LocalRepo(name=repo).snapshot(snapshot_name)
+                    created_snapshots.append(
+                        {
+                            "Component" : component,
+                            "Name" : snapshot_name
+                        }
+                    )
 
-				created_snapshots = []
-				for repo, component in repos.items():
-					snapshot_name = "%s_%s" % (repo, run_uuid)
-					print("Creating snapshot for repo %s" % repo)
-					session.LocalRepo(name=repo).snapshot(snapshot_name)
-					created_snapshots.append(
-						{
-							"Component" : component,
-							"Name" : snapshot_name
-						}
-					)
+                # Switch
+                target_published_distribution = session.PublishedDistribution(
+                    prefix=channel,
+                    distribution=distribution,
+                )
 
-				# Switch
-				target_published_distribution = session.PublishedDistribution(
-					prefix=channel,
-					distribution=distribution,
-				)
-
-				target_published_distribution.update(
-					snapshots=created_snapshots,
-					signing=signing_configuration,
-					force_overwrite=True,
-				)
+                target_published_distribution.update(
+                    snapshots=created_snapshots,
+                    signing=signing_configuration,
+                    force_overwrite=True,
+                )
