@@ -135,7 +135,7 @@ if __name__ == "__main__":
         channel = os.path.basename(base_directory)
 
         if distribution not in ALLOWED_DISTRIBUTIONS:
-            raise Exception("Distribution %s not allowed" % distribution)
+            raise Exception(f"Distribution {distribution} not allowed")
 
         touched_components = set()
         for referenced_file in changes["files"]:
@@ -146,12 +146,12 @@ if __name__ == "__main__":
                 component = "main"
 
             # Create a new directory and upload every referenced file
-            upload_directory = session.Directory(dir="%s-%s" % (run_uuid, component))
+            upload_directory = session.Directory(dir=f"{run_uuid}-{component}")
 
             full_filepath = os.path.join(base_directory, referenced_file["name"])
 
             with open(full_filepath, "r+b") as f:
-                print("Uploading %s" % full_filepath)
+                print(f"Uploading {full_filepath}")
                 upload_directory.upload(f)
 
                 # Truncate rather than removing as we might not be
@@ -163,10 +163,10 @@ if __name__ == "__main__":
         # Upload the changes file for every component
         # FIXME: Is this wrong?
         for component in touched_components:
-            upload_directory = session.Directory(dir="%s-%s" % (run_uuid, component))
+            upload_directory = session.Directory(dir=f"{run_uuid}-{component}")
 
             with open(changes_path, "rb") as f:
-                print("Uploading changes file %s on touched component %s" % (changes_path, component))
+                print(f"Uploading changes file {changes_path} on touched component {component}")
                 upload_directory.upload(f)
 
         # Now we should operate on the aptly database directly, so
@@ -177,46 +177,39 @@ if __name__ == "__main__":
             repos = {}
 
             for x in session.LocalRepo.list():
-                if x["Name"].startswith("%s_%s_" % (channel, distribution)):
+                if x["Name"].startswith(f"{channel}_{distribution}_"):
                     repos[x["Name"]] = x["DefaultComponent"]  # FIXME: this is an assumption we make
 
             # We should create a new repository?
             for component in touched_components:
                 # Construct target repository name, which boils down to
                 #  channel_distribution_component
-                target_repository_name = "%s_%s_%s" % (
-                    channel,
-                    distribution,
-                    component
-                )
+                target_repository_name = f"{channel}_{distribution}_{component}"
 
                 if target_repository_name not in repos:
                     # Create a new repository
                     session.LocalRepo.create(
                         target_repository_name,
-                        comment="Local repository for %s/%s" % (
-                            distribution,
-                            component
-                        ),
+                        comment=f"Local repository for {distribution}/{component}",
                         default_distribution=distribution,
                         default_component=component
                     )
                     repos[target_repository_name] = component
 
                 # Now include the new packages
-                print("Importing packages for component %s" % component)
+                print(f"Importing packages for component {component}")
                 res = session.RepositoryDirectory(
                     name=target_repository_name,
-                    dir="%s-%s" % (run_uuid, component)
+                    dir=f"{run_uuid}-{component}"
                 ).include()
-                print("Result of import is %s" % res)
+                print(f"Result of import is {res}")
 
             # Local repo is ok now, snapshot every repository and
             # re-publish them
             created_snapshots = []
             for repo, component in repos.items():
-                snapshot_name = "%s_%s" % (repo, run_uuid)
-                print("Creating snapshot for repo %s" % repo)
+                snapshot_name = f"{repo}_{run_uuid}"
+                print(f"Creating snapshot for repo {repo}")
                 session.LocalRepo(name=repo).snapshot(snapshot_name)
                 created_snapshots.append(
                     {
@@ -272,7 +265,7 @@ if __name__ == "__main__":
                         "snapshot",
                         created_snapshots,
                         distribution=distribution,
-                        label="%s (%s channel)" % (DEFAULT_VENDOR, channel),
+                        label=f"{DEFAULT_VENDOR} ({channel} channel)",
                         origin=DEFAULT_VENDOR,
                         architectures=DEFAULT_ARCHITECTURES,
                         signing=signing_configuration,
