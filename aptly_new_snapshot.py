@@ -79,6 +79,7 @@ DEFAULT_ARCHITECTURES = [
 
 if __name__ == "__main__":
     run_uuid = uuid.uuid4()
+    target_repo = sys.argv[1] if len(sys.argv) > 1 else None
 
     signing_configuration = aptly_api.AptlyAPISigningOptions(
         [
@@ -93,29 +94,41 @@ if __name__ == "__main__":
             # channel and distribution combo
             repo_list = session.LocalRepo.list()
 
-            channels_and_distributions = {
-                "_".join(x["Name"].split("_")[:2])
-                for x in repo_list if "_" in x["Name"] # meh
-            }
+            if target_repo is not None:
+                target_repo_data = None
+                for x in repo_list:
+                    if x["Name"] == target_repo:
+                        target_repo_data = x
+                        break
 
-            for channel_and_distribution in channels_and_distributions:
-                channel, distribution = channel_and_distribution.split("_")
+                if target_repo_data is None:
+                    print(f"Repository not found: {target_repo}")
+                    sys.exit(1)
 
-                repos = {
-                    x["Name"] : x["DefaultComponent"] # FIXME: this is an assumption we make
-                    for x in repo_list
-                    if x["Name"].startswith("%s_%s_" % (channel, distribution))
-                }
+                if "_" not in target_repo:
+                    print(f"Invalid repository name: {target_repo}")
+                    sys.exit(1)
+
+                channel, distribution = "_".join(target_repo.split("_")[:2]).split("_")
+
+                repos = {}
+                for x in repo_list:
+                    if x["Name"].startswith(f"{channel}_{distribution}_"):
+                        repos[x["Name"]] = x["DefaultComponent"]  # FIXME: this is an assumption we make
 
                 created_snapshots = []
                 for repo, component in repos.items():
-                    snapshot_name = "%s_%s" % (repo, run_uuid)
-                    print("Creating snapshot for repo %s" % repo)
-                    session.LocalRepo(name=repo).snapshot(snapshot_name)
+                    if repo == target_repo:
+                        snapshot_name = f"{repo}_{run_uuid}"
+                        print(f"Creating snapshot for repo {repo}")
+                        session.LocalRepo(name=repo).snapshot(snapshot_name)
+                    else:
+                        snapshot_name = repo
+
                     created_snapshots.append(
                         {
-                            "Component" : component,
-                            "Name" : snapshot_name
+                            "Component": component,
+                            "Name": snapshot_name
                         }
                     )
 
@@ -130,3 +143,42 @@ if __name__ == "__main__":
                     signing=signing_configuration,
                     force_overwrite=True,
                 )
+
+            else:
+                channels_and_distributions = set()
+                for x in repo_list:
+                    if "_" in x["Name"]:  # meh
+                        value = "_".join(x["Name"].split("_")[:2])
+                        channels_and_distributions.add(value)
+
+                for channel_and_distribution in channels_and_distributions:
+                    channel, distribution = channel_and_distribution.split("_")
+
+                    repos = {}
+                    for x in repo_list:
+                        if x["Name"].startswith(f"{channel}_{distribution}_"):
+                            repos[x["Name"]] = x["DefaultComponent"]  # FIXME: this is an assumption we make
+
+                    created_snapshots = []
+                    for repo, component in repos.items():
+                        snapshot_name = f"{repo}_{run_uuid}"
+                        print(f"Creating snapshot for repo {repo}")
+                        session.LocalRepo(name=repo).snapshot(snapshot_name)
+                        created_snapshots.append(
+                            {
+                                "Component": component,
+                                "Name": snapshot_name
+                            }
+                        )
+
+                    # Switch
+                    target_published_distribution = session.PublishedDistribution(
+                        prefix=channel,
+                        distribution=distribution,
+                    )
+
+                    target_published_distribution.update(
+                        snapshots=created_snapshots,
+                        signing=signing_configuration,
+                        force_overwrite=True,
+                    )
