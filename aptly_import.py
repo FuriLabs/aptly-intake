@@ -139,7 +139,6 @@ if __name__ == "__main__":
 
         touched_components = set()
         for referenced_file in changes["files"]:
-            component = referenced_file["section"].split("/")[0] \
             if "section" in referenced_file and "/" in referenced_file["section"]:
                 component = referenced_file["section"].split("/")[0]
             else:
